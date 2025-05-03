@@ -3,9 +3,12 @@ import numpy as np
 import joblib # For loading the pre-trained scaler
 import os
 import json
-# Removed sklearn.model_selection imports as we are not splitting/testing here
-# Removed sklearn.metrics imports as we are not evaluating here
-# Removed matplotlib and seaborn imports as we are not plotting here
+from sklearn.model_selection import train_test_split # Added back for potential future use or if needed for analysis
+from sklearn.preprocessing import MinMaxScaler
+# Added imports for plotting
+import matplotlib.pyplot as plt
+import seaborn as sns
+
 import time
 from datetime import timedelta
 
@@ -28,10 +31,11 @@ import tensorflow as tf # Import tensorflow
 load_dotenv(dotenv_path='GROQ_API_KEY.env') # Load variables from the specified .env file
 
 # Configuration
-# NOTE: Update this path to your actual file location (used only for data loading/analysis to generate explanation/insights)
+# NOTE: Update this path to your actual file location
 DATA_FILE_PATH = r"C:\Users\mechi\Documents\GitHub\LLM_Transformer_Model\aunp_synthesis_cancer_treatment_v3_transformed.csv"
 MODEL_DIR = "saved_models"
-RANDOM_STATE = 42 # Still used for initial data analysis if needed
+RANDOM_STATE = 42
+TEST_SIZE = 0.2 # Used for splitting data if needed for evaluation
 
 # --- Model and Scaler File Prefixes/Extensions ---
 # We will find the latest files based on these prefixes and extensions
@@ -44,6 +48,8 @@ EXPLANATION_PREFIX = "aunp_synthesis_explanation"
 EXPLANATION_EXTENSION = ".md"
 INSIGHTS_PREFIX = "feature_insights"
 INSIGHTS_EXTENSION = ".json"
+CORRELATION_PLOT_PREFIX = "correlation_matrix"
+CORRELATION_PLOT_EXTENSION = ".png"
 
 
 # Groq API Configuration (Direct Call)
@@ -65,7 +71,7 @@ if not os.path.exists(MODEL_DIR):
     os.makedirs(MODEL_DIR)
     print(f"Created directory: {MODEL_DIR}")
 
-# Generate a timestamp for saving files (used for saving explanation/insights if they don't exist)
+# Generate a timestamp for saving files
 timestamp = time.strftime("%Y%m%d_%H%M%S")
 
 # --- Helper function to find the latest file with a given prefix and extension ---
@@ -75,7 +81,7 @@ def find_latest_file(directory, prefix, extension):
     try:
         for f_name in os.listdir(directory):
             if f_name.startswith(prefix) and f_name.endswith(extension):
-                # Extract timestamp (assuming YYYYMMDD_HHMMSS format after prefix)
+                # Extract timestamp (assumingYYYYMMDD_HHMMSS format after prefix)
                 # Adjusted slicing to handle prefix length and extension length
                 # Find the part of the string between the prefix and the extension
                 start_index = len(prefix)
@@ -104,6 +110,22 @@ def find_latest_file(directory, prefix, extension):
         print(f"Error finding latest file in '{directory}': {e}")
         return None # Return None on error
     return latest_file
+
+
+# --- Load Data ---
+# Load the full dataset for analysis and potential future use (like evaluation)
+df = pd.DataFrame() # Initialize df before loading
+print(f"Loading data from: {DATA_FILE_PATH}")
+try:
+    df = pd.read_csv(DATA_FILE_PATH)
+    print("Data loaded successfully.")
+    print(f"Dataset shape: {df.shape}")
+except FileNotFoundError:
+    print(f"Error: Data file not found at {DATA_FILE_PATH}")
+    print("Proceeding with empty DataFrame. Some features may not work.")
+except Exception as e:
+    print(f"Error loading data from {DATA_FILE_PATH}: {e}")
+    print("Proceeding with empty DataFrame. Some features may not work.")
 
 
 # --- Load Explanation and Criteria ---
@@ -176,7 +198,6 @@ latest_scaler_Y_file = find_latest_file(MODEL_DIR, SCALER_Y_PREFIX, SCALER_EXTEN
 if latest_model_file:
     model_path = os.path.join(MODEL_DIR, latest_model_file)
     try:
-        # *** UPDATED: Load Keras model using tf.keras.models.load_model ***
         ml_model = tf.keras.models.load_model(model_path)
         print(f"ML model loaded successfully from {model_path}")
     except Exception as e:
@@ -188,7 +209,6 @@ else:
 if latest_scaler_X_file:
     scaler_x_path = os.path.join(MODEL_DIR, latest_scaler_X_file)
     try:
-        # *** UPDATED: Load scaler_X using joblib ***
         scaler_X = joblib.load(scaler_x_path)
         print(f"Scaler X loaded successfully from {scaler_x_path}")
     except Exception as e:
@@ -200,7 +220,6 @@ else:
 if latest_scaler_Y_file:
     scaler_y_path = os.path.join(MODEL_DIR, latest_scaler_Y_file)
     try:
-        # *** UPDATED: Load scaler_y using joblib ***
         scaler_y = joblib.load(scaler_y_path)
         print(f"Scaler y loaded successfully from {scaler_y_path}")
     except Exception as e:
@@ -209,34 +228,66 @@ else:
      print(f"Error: No latest Scaler y file found with prefix '{SCALER_Y_PREFIX}' in {MODEL_DIR}. Cannot inverse transform output.")
 
 
-# --- Initialize df *before* data loading ---
-# This prevents NameError if data loading fails
-df = pd.DataFrame()
-
-
 # --- Determine Input Features (excluding targets and suitability) ---
 # This requires loading the data schema or inferring from loaded data/insights.
 # Since we load the data initially to generate insights, we can use its columns.
 input_features = []
-# Temporarily load the data just to get column names if df is empty
-# This block is primarily for identifying input features if the main df load fails
-if df.empty: # Check if df is empty (either not loaded or failed to load)
-    print("Attempting to load data temporarily to identify input features...")
+# Use the loaded df to identify input features if available
+if not df.empty:
+    input_features = [col for col in df.columns if col not in TARGET_COLS and col != 'Suitable_for_Cancer_Treatment']
+    print(f"Identified input features from loaded data: {input_features}")
+else:
+    print("Warning: Data not loaded, cannot identify input features dynamically.")
+    # If data loading failed, you might need to hardcode input_features here
+    # Example: input_features = ['Input_Param_1', 'Input_Param_2', ...]
+    # If hardcoding, ensure this list matches the columns your scaler_X was fitted on.
+    # For this script to work, you MUST have input_features defined.
+    # If df is empty and input_features is still empty, the script will exit later.
+
+
+# --- Function to plot Correlation Matrix ---
+def plot_correlation_matrix(df, save_path):
+    """
+    Calculates and plots the correlation matrix for the DataFrame.
+
+    Args:
+        df (pd.DataFrame): The DataFrame containing the data.
+        save_path (str): The path to save the correlation matrix plot.
+    """
+    if df.empty:
+        print("Cannot plot correlation matrix: DataFrame is empty.")
+        return
+
+    print("\nGenerating correlation matrix plot...")
+    # Select only numeric columns for correlation
+    numeric_df = df.select_dtypes(include=np.number)
+
+    if numeric_df.empty:
+        print("Cannot plot correlation matrix: No numeric columns found in DataFrame.")
+        return
+
+    correlation_matrix = numeric_df.corr()
+
+    plt.figure(figsize=(12, 10)) # Adjust figure size as needed
+    sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', fmt=".2f", linewidths=.5)
+    plt.title('Correlation Matrix of AuNP Synthesis Data')
+    plt.tight_layout()
+
     try:
-        temp_df = pd.read_csv(DATA_FILE_PATH)
-        # Assuming 'Suitable_for_Cancer_Treatment' is not in the raw data file
-        input_features = [col for col in temp_df.columns if col not in TARGET_COLS]
-        print(f"Identified input features from temporary data load: {input_features}")
-        del temp_df # Remove temporary dataframe
-    except FileNotFoundError:
-        print(f"Error: Data file not found at {DATA_FILE_PATH}. Cannot identify input features.")
-        # If data loading fails, you might need to hardcode input_features here
-        # Example: input_features = ['Input_Param_1', 'Input_Param_2', ...]
+        plt.savefig(save_path)
+        print(f"Correlation matrix plot saved to: {save_path}")
     except Exception as e:
-        print(f"Error during temporary data load for feature identification: {e}")
-# Note: The original df loading block is commented out or removed in this version
-# as we are focusing on prediction from user input using saved models/scalers.
-# If you need to re-enable full data loading/analysis, uncomment that block.
+        print(f"Error saving correlation matrix plot to {save_path}: {e}")
+
+    # plt.show() # Uncomment to display the plot immediately
+
+
+# --- Generate and save Correlation Matrix Plot ---
+if not df.empty:
+    correlation_plot_path = os.path.join(MODEL_DIR, f"{CORRELATION_PLOT_PREFIX}_{timestamp}{CORRELATION_PLOT_EXTENSION}")
+    plot_correlation_matrix(df, correlation_plot_path)
+else:
+    print("Skipping correlation matrix plot generation due to empty DataFrame.")
 
 
 # --- Function to get user input for a single sample ---
@@ -262,29 +313,30 @@ def create_llm_classification_prompt(sample, feature_explanation, criteria):
     prompt = f"""Task: Determine if the gold nanoparticle (AuNP) synthesis parameters and resulting properties are suitable for cancer treatment.
 
 Background Knowledge on AuNP Synthesis for Cancer Treatment:
-{feature_explanation}
+{explanation_text} # Use the loaded explanation text
 
 Sample to Evaluate:
 """
 
     # Add input features
     prompt += "## Input Parameters:\n"
-    input_cols = [col for col in sample.index if col not in criteria]
-    if input_cols:
-        for col in input_cols:
+    # Assuming sample contains all input features and target properties
+    input_cols_in_sample = [col for col in sample.index if col in input_features]
+    if input_cols_in_sample:
+        for col in input_cols_in_sample:
             prompt += f"- {col}: {sample[col]:.4f}\n"
     else:
-         prompt += "No input parameters provided.\n"
+         prompt += "No input parameters provided in sample.\n"
 
 
     # Add output properties
     prompt += "\n## Resulting Properties:\n"
-    output_cols = [col for col in criteria.keys() if col in sample.index]
-    if output_cols:
-        for col in output_cols:
+    output_cols_in_sample = [col for col in criteria.keys() if col in sample.index]
+    if output_cols_in_sample:
+        for col in output_cols_in_sample:
             prompt += f"- {col}: {sample[col]:.4f}\n"
     else:
-         prompt += "No resulting properties provided.\n"
+         prompt += "No resulting properties provided in sample.\n"
 
 
     # Add the classification question
@@ -316,26 +368,27 @@ def generate_synthesis_optimization_prompt(sample, feature_explanation, criteria
     prompt = f"""Task: Suggest optimizations to the gold nanoparticle (AuNP) synthesis method to improve its suitability for cancer treatment.
 
 Background Knowledge on AuNP Synthesis for Cancer Treatment:
-{feature_explanation}
+{explanation_text} # Use the loaded explanation text
 
 Current Synthesis Parameters and Results:
 """
 
     prompt += "## Input Parameters:\n"
-    input_cols = [col for col in sample.index if col not in criteria]
-    if input_cols:
-         for col in input_cols:
+    # Assuming sample contains all input features and target properties
+    input_cols_in_sample = [col for col in sample.index if col in input_features]
+    if input_cols_in_sample:
+         for col in input_cols_in_sample:
             prompt += f"- {col}: {sample[col]:.4f}\\n"
     else:
-         prompt += "No input parameters provided.\\n"
+         prompt += "No input parameters provided in sample.\\n"
 
     prompt += "\\n## Resulting Properties:\\n"
-    output_cols = [col for col in criteria.keys() if col in sample.index]
-    if output_cols:
-         for col in output_cols:
+    output_cols_in_sample = [col for col in criteria.keys() if col in sample.index]
+    if output_cols_in_sample:
+         for col in output_cols_in_sample:
             prompt += f"- {{col}}: {{sample[col]:.4f}}\\n"
     else:
-         prompt += "No resulting properties provided.\\n"
+         prompt += "No resulting properties provided in sample.\\n"
 
 
     if unmet_criteria:
@@ -481,13 +534,13 @@ def call_groq_api(prompt, model=GROQ_MODEL_NAME, max_tokens=500, temperature=0.7
     return f"Error: Max retries ({max_retries}) reached after hitting rate limit.", None
 
 
-# --- Main execution flow for user input ---
+# --- Main execution flow ---
 if __name__ == '__main__':
     # Check if model and scalers are loaded and input features are identified
     if ml_model is None or scaler_X is None or scaler_y is None:
-        print("\nCannot proceed without loaded ML model and scalers.")
+        print("\nCannot proceed with prediction or LLM analysis without loaded ML model and scalers.")
     elif not input_features:
-         print("\nCannot proceed without identified input features.")
+         print("\nCannot proceed with prediction or LLM analysis without identified input features.")
     else:
         # Get user input for a single sample
         user_sample_input = get_user_input(input_features)
@@ -517,6 +570,7 @@ if __name__ == '__main__':
 
             # Combine user input parameters and predicted outputs into a single sample Series
             # This combined sample will be used for LLM prompts
+            # Ensure the order of columns matches what the LLM prompt functions expect
             combined_sample = pd.concat([user_sample_input, predicted_output_series])
 
             # --- Call Groq API for Classification ---
@@ -567,4 +621,4 @@ if __name__ == '__main__':
 
 
 else:
-    print("Skipping prediction and LLM analysis because input features could not be identified (check DATA_FILE_PATH).")
+    print("Skipping prediction and LLM analysis because input features could not be identified or data loading failed.")
