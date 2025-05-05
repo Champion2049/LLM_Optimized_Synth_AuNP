@@ -238,11 +238,6 @@ if not df.empty:
     print(f"Identified input features from loaded data: {input_features}")
 else:
     print("Warning: Data not loaded, cannot identify input features dynamically.")
-    # If data loading failed, you might need to hardcode input_features here
-    # Example: input_features = ['Input_Param_1', 'Input_Param_2', ...]
-    # If hardcoding, ensure this list matches the columns your scaler_X was fitted on.
-    # For this script to work, you MUST have input_features defined.
-    # If df is empty and input_features is still empty, the script will exit later.
 
 
 # --- Function to plot Correlation Matrix ---
