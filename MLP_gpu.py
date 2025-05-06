@@ -17,7 +17,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device}")
 
 # Load your DataFrame
-df = pd.read_csv(r"C:\Users\Chirayu\Desktop\Coding\IMI\aunp_synthesis_cancer_treatment_v3_transformed.csv")
+df = pd.read_csv("./aunp_synthesis_cancer_treatment_v3_transformed.csv")
 
 target_cols = ['Particle_Size_nm', 'Zeta_Potential_mV', 'Drug_Loading_Efficiency_%', 'Targeting_Efficiency_%', 'Cytotoxicity_%']
 X = df.drop(columns=target_cols)

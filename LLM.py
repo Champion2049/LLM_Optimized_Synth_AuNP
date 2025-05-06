@@ -32,7 +32,7 @@ load_dotenv(dotenv_path='GROQ_API_KEY.env') # Load variables from the specified 
 
 # Configuration
 # NOTE: Update this path to your actual file location
-DATA_FILE_PATH = r"C:\Users\mechi\Documents\GitHub\LLM_Transformer_Model\aunp_synthesis_cancer_treatment_v3_transformed.csv"
+DATA_FILE_PATH = "./aunp_synthesis_cancer_treatment_v3_transformed.csv"
 MODEL_DIR = "saved_models"
 RANDOM_STATE = 42
 TEST_SIZE = 0.2 # Used for splitting data if needed for evaluation

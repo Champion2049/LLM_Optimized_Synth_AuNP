@@ -1,8 +1,9 @@
 import streamlit as st
 import pandas as pd
+import os
 
 # Page config
-st.set_page_config(page_title="Gold Nanocluster Project", layout="centered")
+st.set_page_config(page_title="Optimized Synthesis Gold Nanoparticles", layout="centered")
 
 # Custom CSS styling
 st.markdown("""
@@ -17,7 +18,7 @@ st.markdown("""
     }
 
     div.stButton > button {
-    background-color: #ffd700;
+    background-color: #d2c8e0;
     color: black;
     font-weight: bold;
     padding: 0.75rem 1.5rem;
@@ -63,28 +64,32 @@ button:hover {
 """, unsafe_allow_html=True)
 
 # Title
-st.markdown('<h1 style="text-align:center;">Gold Nanocluster Synth Predictor</h1>', unsafe_allow_html=True)
+st.markdown('<h1 style="text-align:center;">LLM based optimized Synthesis of Gold Nanoparticles </h1>', unsafe_allow_html=True)
 
 # Subtitle
-st.markdown('<p style="text-align:center;">Predicting nanoparticle characteristics for cancer treatment using deep learning.</p>', unsafe_allow_html=True)
+st.markdown('<p style="text-align:center;">Predicting nanoparticle characteristics for cancer treatment using deep learning.\n Optimizing it using LLMs.</p>', unsafe_allow_html=True)
 
 # Image
-#st.image("https://upload.wikimedia.org/wikipedia/commons/6/63/Nanoparticles_targeting_cancer_cells.jpg", caption="Gold Nanoclusters targeting cancer cells", use_container_width=True)
+st.image("gold_nanoparticle.jpg", use_container_width=True)
 
 
 # Model Description
 st.markdown("""
 ###  About This Project:
-Gold nanoclusters (AuNCs) are a new class of ultra-small nanoparticles showing huge promise in cancer therapy.  
-Their size, charge, and surface properties can significantly influence **targeting efficiency**, **drug delivery**, and **cellular uptake**.
+This project integrates Deep Learning and a Large Language Model(LLM) to analyze and optimize gold nanoparticle synthesis for cancer treatment: it first loads and analyzes experimental data, including plotting correlations, then uses a trained Keras regression model and associated scalers to predict key nanoparticle properties based on user-provided synthesis parameters, and finally leverages a Groq API-accessed LLM to classify the suitability of the predicted properties against predefined criteria and offer targeted optimization suggestions for improving the synthesis method.
 
-We've trained a **deep neural network (DNN)** on experimental reaction data to predict:
+We've trained 4 **Deep Learning models** on experimental reaction data to predict:
 - **Particle Size**
 - **Zeta Potential**
-- **Polydispersity**
 - **Drug Loading Efficiency**
 - **Targeting Efficiency**
 - **Cytotoxicity**
+
+Our Trained models include:
+- **XGBoost**: A powerful tree-based model for regression tasks.
+- **Keras**: A deep learning model for complex pattern recognition.
+- **DCN**: Deep Cross Network for feature interaction learning.
+- **MLP**: Multi-Layer Perceptron for non-linear regression.
 
 Just enter your synthesis parameters, and our model will give optimized outcomes — no lab trials needed 
 """)
@@ -92,12 +97,6 @@ Just enter your synthesis parameters, and our model will give optimized outcomes
 # Call to Action
 st.markdown('<h3 style="text-align:center;">Ready to explore your reaction outcomes?</h3>', unsafe_allow_html=True)
 
-col1, col2 = st.columns(2)
 
-with col1:
-    if st.button("Go to Model A"):
-        st.switch_page("Pages/Model A.py")
-
-with col2:
-    if st.button("Go to Model B"):
-        st.switch_page("Pages/Model B.py")
+if st.button("Try the Model"):
+    st.switch_page("pages/Model.py")

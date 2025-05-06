@@ -221,7 +221,7 @@ def objective(trial):
 
 # Main Pipeline
 if __name__ == "__main__":
-    file_path = r"C:\Users\Chirayu\Desktop\Coding\IMI\aunp_synthesis_cancer_treatment_v3_transformed.csv" # Use raw string for path
+    file_path = "./aunp_synthesis_cancer_treatment_v3_transformed.csv" # Use raw string for path
     # Check if the file exists
     if not os.path.exists(file_path):
         print(f"Error: File not found at {file_path}")

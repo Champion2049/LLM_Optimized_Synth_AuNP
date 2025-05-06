@@ -201,19 +201,18 @@ print(df_v3.describe())
 
 # Define input features used for prediction
 input_features = ["Precursor_Conc_mM", "Reducing_Agent", "Stabilizer", "pH",
-                  "Temperature_C", "Reaction_Time_min", "Mixing_Speed_RPM"]
+                  "Temperature_C", "Reaction_Time_min", "Mixing_Speed_RPM", "Zeta_Potential_mV"]
 
 # Define all output targets the model will predict
-output_targets = ["Particle_Size_nm", "Zeta_Potential_mV", "Polydispersity",
+output_targets = ["Particle_Size_nm", "Polydispersity",
                   "Drug_Loading_Efficiency_%", "Targeting_Efficiency_%", "Cytotoxicity_%"]
 
 # Identify which output targets need scaling (most of them)
-output_targets_to_scale = ["Zeta_Potential_mV", "Polydispersity",
-                           "Drug_Loading_Efficiency_%", "Targeting_Efficiency_%", "Cytotoxicity_%"]
+output_targets_to_scale = ["Polydispersity", "Drug_Loading_Efficiency_%", "Targeting_Efficiency_%", "Cytotoxicity_%"]
 
 # Identify original features (including Particle_Size_nm target) that should pass through the input transformer without scaling/encoding
 # Particle_Size_nm is an output, but also used as input for biomedical targets, so it needs to be passed through here.
-passthrough_features = ["Precursor_Conc_mM", "pH", "Temperature_C", "Reaction_Time_min", "Particle_Size_nm"]
+passthrough_features = ["Precursor_Conc_mM", "pH", "Temperature_C", "Reaction_Time_min", "Particle_Size_nm", "Zeta_Potential_mV"]
 
 # Identify categorical input features needing OneHotEncoding
 categorical_input_features = ['Reducing_Agent', 'Stabilizer']

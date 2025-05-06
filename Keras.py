@@ -25,7 +25,7 @@ import joblib
 
 # --- Configuration ---
 # MAKE SURE THIS PATH IS CORRECT FOR YOUR SYSTEM
-DATA_FILE_PATH = r"C:\Users\Chirayu\Desktop\Coding\IMI\aunp_synthesis_cancer_treatment_v3_transformed.csv"
+DATA_FILE_PATH = "./aunp_synthesis_cancer_treatment_v3_transformed.csv"
 TARGET_COLS = ['Particle_Size_nm', 'Zeta_Potential_mV', 'Drug_Loading_Efficiency_%', 'Targeting_Efficiency_%', 'Cytotoxicity_%']
 TEST_SIZE = 0.2
 RANDOM_STATE = 42

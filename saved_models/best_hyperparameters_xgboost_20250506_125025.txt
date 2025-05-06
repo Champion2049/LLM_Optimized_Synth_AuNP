@@ -1,0 +1,1 @@
+{'n_estimators': 300, 'learning_rate': 0.08969326253069167, 'max_depth': 12, 'subsample': 0.6586019208611532, 'colsample_bytree': 0.7658040394475913, 'gamma': 9.879795571550341, 'reg_alpha': 3.9830250818387842, 'reg_lambda': 0.003594860273259762, 'min_child_weight': 9, 'objective': 'reg:squarederror', 'eval_metric': 'rmse', 'booster': 'gbtree', 'random_state': 42, 'n_jobs': -1}
