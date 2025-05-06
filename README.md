@@ -160,8 +160,8 @@ The LLM classifies suitability based on the following predefined criteria for op
 
 ## Authors & Contributors
 [Chirayu Chaudhari](https://github.com/Champion2049)
-[Janya Billa](https://github.com/YourUsername)
-[Manasvini Kandikonda](https://github.com/YourUsername)
+[Janya Billa](https://github.com/janya26)
+[Manasvini Kandikonda](https://github.com/vini-ai2)
 
 ---
 
