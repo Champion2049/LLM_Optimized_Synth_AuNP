@@ -98,6 +98,9 @@ Run the `LLM.py` script. This script will:
 python LLM.py
 ```
 
+---
+
+
 ### 3. Using the UI Interface
 
 Run `Home.py` using streamlit. This will start up a local server to host the UI for the implementation.
