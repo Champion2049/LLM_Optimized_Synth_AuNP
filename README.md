@@ -150,7 +150,7 @@ Follow the prompts to enter your desired synthesis parameters.
 
 The LLM classifies suitability based on the following predefined criteria for optimal AuNP properties in cancer treatment:
 
-- `Particle_Size_nm`: Ideal range **(40, 100)**
+- `Particle_Size_nm`: Ideal range **(10, 100)**
 - `Zeta_Potential_mV`: Ideal range **(-30, -5)**
 - `Drug_Loading_Efficiency_%`: Ideal range **(70, 100)**
 - `Targeting_Efficiency_%`: Ideal range **(75, 100)**
