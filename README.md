@@ -57,7 +57,7 @@ The core idea is to:
         ```
 
 6.  **Place your data file:**
-    * Ensure your transformed data file (`aunp_synthesis_cancer_treatment_v3_transformed.csv`) is located at the path specified by `DATA_FILE_PATH` in the scripts. Update the `DATA_FILE_PATH` variable in both `Keras.py` and `classification_model_direct_groq.py` if your file is located elsewhere.
+    * Ensure your transformed data file (`aunp_synthesis_cancer_treatment_v3_transformed.csv`) is located at the path specified by `DATA_FILE_PATH` in the scripts. Update the `DATA_FILE_PATH` variable in `Keras.py`, `LLM.py` and `Home.py` if your file is located elsewhere.
 
 ## Usage
 
