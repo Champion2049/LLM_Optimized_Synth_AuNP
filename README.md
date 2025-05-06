@@ -14,6 +14,8 @@ The core idea is to:
 * **Correlation Matrix Plotting:** Generates and saves a correlation matrix heatmap to visualize relationships between features and target properties.
 * **Deep Learning Model Training:** Trains a Keras Deep Learning model to predict AuNP properties (Particle Size, Zeta Potential, Drug Loading Efficiency, Targeting Efficiency, Cytotoxicity) from synthesis parameters.
 * **XGBoost Model Training (Optional):** Includes code for training an XGBoost model as an alternative or comparison (based on `Keras.py`).
+* **DCN Model Training (Optional):** Includes code for training a DCN model as an alternative or comparison (based on `Keras.py`).
+* **MLP Model Training (Optional):** Includes code for training a MLP model as an alternative or comparison (based on `Keras.py`).
 * **Model and Scaler Saving:** Saves the trained Keras model, input scaler (`scaler_X`), and output scaler (`scaler_y`) using Keras native format and `joblib`.
 * **Feature Insights and Explanation Generation:** Analyzes feature statistics and correlations to create a detailed explanation text, used as context for the LLM.
 * **LLM Integration (via Groq API):**
