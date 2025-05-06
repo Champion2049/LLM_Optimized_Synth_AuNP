@@ -177,4 +177,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 ## License
 
-GNU GPL 3.0
+## License
+
+## License
+
+This project is licensed under the [GNU General Public License v3.0](LICENSE).
+
