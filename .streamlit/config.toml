@@ -1,0 +1,12 @@
+# App-wide theme. A dark, academic palette with a muted gold accent (fitting the
+# gold-nanoparticle subject) and IBM Plex typefaces set in theme.py.
+[theme]
+base = "dark"
+primaryColor = "#C9A24C"
+backgroundColor = "#10151D"
+secondaryBackgroundColor = "#1A212B"
+textColor = "#E4E7EC"
+
+[client]
+# Minimal toolbar (hides the Deploy menu) without removing the sidebar expand control.
+toolbarMode = "minimal"

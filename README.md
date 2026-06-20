@@ -1,12 +1,14 @@
-# LLM Transformer Model for AuNP Synthesis Optimization
+# AuNP Synthesis Optimization (Deep Learning + Deterministic Rule Engine)
 
-This project combines machine learning (Deep Learning with Keras, potentially XGBoost) with a Large Language Model (LLM) accessed via Groq to analyze and optimize Gold Nanoparticle (AuNP) synthesis for cancer treatment applications.
+This project combines machine learning (Deep Learning with Keras) with a **deterministic rule engine** to analyze and optimize Gold Nanoparticle (AuNP) synthesis for cancer treatment applications.
 
 The core idea is to:
 
 1.  Train a predictive model to forecast key AuNP properties based on synthesis parameters.
-2.  Use an LLM to interpret these predicted properties against predefined suitability criteria for cancer treatment.
-3.  Leverage the LLM's understanding of the data and criteria to provide intelligent suggestions for optimizing the synthesis method to achieve desired properties.
+2.  Score each predicted property against predefined suitability criteria — the Δₖ deviation tells us *which* property is out of range and *in which direction*.
+3.  Map each deviation to a **pre-validated optimization recommendation**, keyed by *(synthesis method, property, direction of deviation)*. Every recommendation is written and approved in advance by a domain chemist and ships with a one-line mechanistic justification.
+
+> **Why a rule engine?** Earlier versions sent predictions to an external generative model to produce optimization advice. That carried hallucination risk, API cost/latency, and could suggest chemistry inconsistent with the actual synthesis method. The lookup table is **traceable** (every cell cites a mechanism), **zero-cost / zero-latency** (no API dependency), and makes method-inconsistency *structurally impossible*. The trade-off — by design — is that on a truly novel combination the table degrades gracefully to *"no rule found; flagged for chemist review"* rather than guessing. See [`recommender.py`](recommender.py). An optional explanation layer can expand the pre-approved recommendations into a fuller written explanation; it is tightly grounded in the table and never decides chemistry.
 
 ## Features
 
@@ -17,13 +19,16 @@ The core idea is to:
 * **DCN Model Training (Optional):** Includes code for training a DCN model as an alternative or comparison (based on `Keras.py`).
 * **MLP Model Training (Optional):** Includes code for training a MLP model as an alternative or comparison (based on `Keras.py`).
 * **Model and Scaler Saving:** Saves the trained Keras model, input scaler (`scaler_X`), and output scaler (`scaler_y`) using Keras native format and `joblib`.
-* **Feature Insights and Explanation Generation:** Analyzes feature statistics and correlations to create a detailed explanation text, used as context for the LLM.
-* **LLM Integration (via Groq API):**
-    * **Suitability Classification:** Classifies whether predicted AuNP properties are suitable for cancer treatment based on defined criteria, providing a detailed explanation.
-    * **Optimization Suggestions:** Suggests specific modifications to synthesis parameters to improve properties towards the ideal ranges.
-* **Single Sample Prediction and Analysis:** Allows users to input synthesis parameters for a single sample, get property predictions from the ML model, and receive suitability classification and optimization suggestions from the LLM.
-* **Rate Limit Handling:** Includes retry logic with exponential backoff for Groq API calls to manage rate limits.
-* **Environment Variable Loading:** Uses `python-dotenv` to load the Groq API key from a `.env` file.
+* **Feature Insights and Explanation Generation:** Analyzes feature statistics and correlations to create a detailed explanation text.
+* **Deterministic Recommendation Engine ([`recommender.py`](recommender.py)):**
+    * **Synthesis-method inference:** Derives the method (Turkevich, Seed-Mediated, Brust-Schiffrin, Polyol/Green) from the chosen reducer/stabilizer — works on both plain categorical and one-hot–encoded inputs.
+    * **Δₖ deviation scoring:** Ranks out-of-range properties by range-normalized severity.
+    * **Pre-validated lookup:** Maps *(method, property, direction)* to a chemist-written recommendation + mechanism.
+    * **Multi-deviation handling:** Concatenates the top recommendations by severity and adds a deterministic synergy/conflict note (do two fixes reinforce, e.g. *"both call for more citrate"*, or trade off?).
+    * **Reconciliation with the success classifier:** Cross-checks the model's success prediction so the advice never contradicts it (see below).
+* **Optional detailed explanation:** Expands the rule-based recommendations with deeper mechanism and practical lab guidance. The recommendations themselves stay rule-based and unchanged.
+* **Single Sample Prediction and Analysis:** Lets users enter synthesis parameters for a single sample, get property predictions from the ML model, and receive rule-based optimization recommendations.
+* **Environment Variable Loading:** Uses `python-dotenv` to load configuration from a `.env` file.
 
 ## Installation
 
@@ -83,7 +88,7 @@ Ensure this script runs successfully and generates the necessary files in the `s
 
 ---
 
-### 2. Predicting Properties and Getting LLM Analysis
+### 2. Predicting Properties and Getting Recommendations (CLI)
 
 Run the `LLM.py` script. This script will:
 
@@ -92,9 +97,9 @@ Run the `LLM.py` script. This script will:
 * Plot and save the correlation matrix of your data.
 * Prompt you to enter synthesis parameters for a single sample.
 * Use the loaded Keras model to predict the resulting AuNP properties.
-* Call the Groq API to classify the suitability of the predicted properties and provide an explanation.
-* Call the Groq API to suggest optimization steps based on the input parameters and predicted/classified properties.
-* Print the predicted properties, suitability classification, explanation, and optimization suggestion to the console.
+* Perform a suitability classification of the predicted properties (a separate remote call).
+* Generate **deterministic optimization recommendations** from the rule engine in [`recommender.py`](recommender.py) — this step makes no external call.
+* Print the predicted properties, suitability classification, and optimization recommendations to the console.
 
 ```bash
 python LLM.py
@@ -142,19 +147,52 @@ Follow the prompts to enter your desired synthesis parameters.
 
 - **Deep Learning Model**: A Sequential model implemented with TensorFlow/Keras for multi-output regression.
 - **XGBoost Model (Optional)**: An XGBoost Regressor wrapped in `MultiOutputRegressor` for multi-output regression.
-- **Large Language Model**: Accessed via the Groq API (specifically `llama3-8b-8192` or `llama3-70b-8192` as configured) for suitability classification and optimization suggestions.
+- **Recommendation Engine**: A deterministic, chemist-validated *(method, property, direction)* lookup table ([`recommender.py`](recommender.py)) that generates optimization recommendations — no external service, no API.
+- **Detailed explanation (optional)**: If enabled, a natural-language layer expands the rule-based recommendations into a fuller written explanation. It is tightly grounded in the lookup table and never changes the chemistry. The legacy CLI ([`LLM.py`](LLM.py)) additionally performs a separate suitability-classification step via a remote call.
 
 ---
 
 ## Suitability Criteria
 
-The LLM classifies suitability based on the following predefined criteria for optimal AuNP properties in cancer treatment:
+For the Streamlit UI's **"Cancer Treatment (General)"** use-case, the ideal ranges are **data-derived** — the 5th–95th percentile of the `Successful_Treatment == 1` subset (n = 4639), regenerated by [`derive_criteria.py`](derive_criteria.py):
 
-- `Particle_Size_nm`: Ideal range **(10, 100)**
-- `Zeta_Potential_mV`: Ideal range **(-30, -5)**
-- `Drug_Loading_Efficiency_%`: Ideal range **(70, 100)**
-- `Targeting_Efficiency_%`: Ideal range **(75, 100)**
-- `Cytotoxicity_%`: Ideal range **(70, 90)**
+- `Particle_Size_nm`: **(2.0, 28.0)**
+- `Particle_Width_nm`: **(2.0, 28.0)**
+- `Drug_Loading_Efficiency`: **(42.6, 52.9)**
+- `Targeting_Efficiency`: **(38.8, 58.5)**
+- `Cytotoxicity`: **(7.0, 18.4)**
+
+This grounding matters: with the original hand-picked ranges, only **82%** of "all-in-range" syntheses were actually successful and the ranges captured just **48%** of true successes — so the recommender could report "no adjustments required" next to a model verdict of *Unsuccessful*. The derived ranges raise success-recall to **69%** at comparable precision, so "in range" now lines up with the model. The other two UI use-cases (Targeted Drug Delivery, Bio-imaging) have **no matching success label in this dataset**, so their ranges remain literature targets and are flagged as unvalidated in the UI.
+
+> The legacy CLI ([`LLM.py`](LLM.py)) still uses its own historical criteria (`Particle_Size_nm` (10,100), `Zeta_Potential_mV` (-30,-5), `Drug_Loading_Efficiency_%` (70,100), `Targeting_Efficiency_%` (75,100), `Cytotoxicity_%` (70,90)) for the separate `*_transformed.csv` dataset.
+
+---
+
+## Recommendation Engine
+
+Once the Δₖ deviation score identifies *which* property is out of range and *in which direction*, the recommendation is a deterministic lookup:
+
+```
+(Synthesis Method, Property, Direction of deviation) → pre-validated, chemist-written recommendation
+```
+
+The synthesis method is inferred from the reducer/stabilizer (citrate → Turkevich, ascorbic acid → Seed-Mediated, NaBH₄ → Brust-Schiffrin, ethylene glycol / extract → Polyol/Green). A few representative rows from the table in [`recommender.py`](recommender.py):
+
+| Method | Property off | Direction | Recommendation | Mechanism |
+| --- | --- | --- | --- | --- |
+| Turkevich | Particle Size | Too large | Increase citrate-to-gold ratio | More citrate → more nucleation sites → smaller particles |
+| Turkevich | Zeta Potential | Not negative enough | Increase citrate or raise pH | More adsorbed citrate anions strengthen negative charge |
+| Seed-Mediated | Aspect Ratio | Too low | Increase AgNO₃ relative to seed | Silver underpotential deposition directs anisotropic growth |
+| Seed-Mediated | Zeta Potential | Too positive (CTAB) | CTAB→PEG-thiol ligand exchange | Removes the cationic CTAB bilayer |
+| Brust-Schiffrin | Particle Size | Too large (>5 nm) | Increase thiol-to-gold ratio | More capping ligand terminates growth earlier |
+| Brust-Schiffrin | Cytotoxicity | Too high | Reduce free thiol; add wash step | Unbound thiol byproducts are a known toxicity source |
+| Polyol/Green | PDI | Too high (batch variability) | Standardize/filter extract; raise extract ratio | Reduces variability inherent to natural extracts |
+
+**Multiple simultaneous deviations** are sorted by |Δₖ| and the top recommendations are concatenated, followed by an automatically derived synergy/conflict note (e.g. *"several fixes point the same way — increasing citrate — so a single change addresses more than one deviation"*). This note is computed from set logic over the reagents each recommendation adjusts; no generative model is involved.
+
+**Reconciliation with the success classifier.** The engine also takes the model's binary success prediction. Because the per-property ranges are necessary but not sufficient (they can't capture every parameter interaction), the report explicitly reconciles the two: if the model predicts *Unsuccessful* yet every property is in range, it says so honestly ("in-range values are necessary but not sufficient … revisit the route holistically") instead of claiming "no adjustments required". An audit over 400 real model predictions found **zero** silent contradictions.
+
+Run `python recommender.py` to see the engine's worked examples (including the reconciliation cases) without launching the UI.
 
 ---
 

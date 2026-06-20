@@ -1,102 +1,68 @@
-import streamlit as st
-import pandas as pd
 import os
+import sys
 
-# Page config
-st.set_page_config(page_title="Optimized Synthesis Gold Nanoparticles", layout="centered")
+import streamlit as st
 
-# Custom CSS styling
-st.markdown("""
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap');
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+import theme
 
-    .main > div {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-    }
+st.set_page_config(
+    page_title="Optimized Synthesis of Gold Nanoparticles",
+    layout="centered",
+)
+theme.apply_base_style()
 
-    div.stButton > button {
-    background-color: #d2c8e0;
-    color: black;
-    font-weight: bold;
-    padding: 0.75rem 1.5rem;
-    border-radius: 12px;
-    font-size: 1.1rem;
-    margin-top: 25px;
-    transition: all 0.3s ease;
-    animation: fadeSlideIn 0.8s ease-out forwards;
-    opacity: 0;
-    transform: translateY(10px);
-}
+theme.page_header(
+    "Optimized Synthesis of Gold Nanoparticles",
+    subtitle=(
+        "Predict nanoparticle properties for cancer-treatment applications with deep "
+        "learning, then optimize the synthesis using a deterministic, "
+        "rule engine."
+    ),
+    kicker="Computational Nanochemistry",
+)
 
-/* Hover glow + scale for all buttons */
-button:hover {
-    transform: scale(1.08);
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
-}
-    @keyframes fadeSlideIn {
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
+if os.path.exists("gold_nanoparticle.jpg"):
+    st.image("gold_nanoparticle.jpg", use_container_width=True)
 
-    h1, h3, p {
-        font-family: 'Poppins', sans-serif;
-        animation: textFadeIn 1.5s ease-out forwards;
-        opacity: 0;
-        transform: translateY(20px);
-    }
+# --- Overview -----------------------------------------------------------------
+theme.section_title("Overview")
+st.markdown(
+    "A trained regression model predicts the key properties of a gold-nanoparticle "
+    "synthesis from its reaction parameters. Each predicted property is then scored against "
+    "validated suitability ranges, and every property that falls outside its range is mapped "
+    "to a **pre-validated optimization recommendation** — indexed by *(synthesis method, "
+    "property, direction of deviation)* and accompanied by a one-line mechanistic "
+    "justification that can be checked against the literature."
+)
 
-    @keyframes textFadeIn {
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
+# --- What it covers -----------------------------------------------------------
+col_props, col_models = st.columns(2)
+with col_props:
+    st.markdown('<div class="field-label">Properties predicted</div>', unsafe_allow_html=True)
+    st.markdown(
+        "- Particle size\n"
+        "- Particle width\n"
+        "- Drug-loading efficiency\n"
+        "- Targeting efficiency\n"
+        "- Cytotoxicity"
+    )
+with col_models:
+    st.markdown('<div class="field-label">Models evaluated</div>', unsafe_allow_html=True)
+    st.markdown(
+        "- **Keras** — deep neural network for multi-output regression\n"
+        "- **XGBoost** — gradient-boosted trees\n"
+        "- **DCN** — deep & cross network for feature interactions\n"
+        "- **MLP** — multi-layer perceptron baseline"
+    )
 
-    h1 { animation-delay: 0.2s; }
-    h3 { animation-delay: 0.4s; }
-    p { animation-delay: 0.6s; }
-    </style>
-""", unsafe_allow_html=True)
+st.markdown("")
+st.markdown(
+    "Enter a set of synthesis parameters and the tool returns the predicted outcome, the "
+    "properties that are out of range, and the specific adjustments to bring them back — "
+    "without a lab trial."
+)
 
-# Title
-st.markdown('<h1 style="text-align:center;">LLM based optimized Synthesis of Gold Nanoparticles </h1>', unsafe_allow_html=True)
-
-# Subtitle
-st.markdown('<p style="text-align:center;">Predicting nanoparticle characteristics for cancer treatment using deep learning.\n Optimizing it using LLMs.</p>', unsafe_allow_html=True)
-
-# Image
-st.image("gold_nanoparticle.jpg", use_container_width=True)
-
-
-# Model Description
-st.markdown("""
-###  About This Project:
-This project integrates Deep Learning and a Large Language Model(LLM) to analyze and optimize gold nanoparticle synthesis for cancer treatment: it first loads and analyzes experimental data, including plotting correlations, then uses a trained Keras regression model and associated scalers to predict key nanoparticle properties based on user-provided synthesis parameters, and finally leverages a Groq API-accessed LLM to classify the suitability of the predicted properties against predefined criteria and offer targeted optimization suggestions for improving the synthesis method.
-
-We've trained 4 **Deep Learning models** on experimental reaction data to predict:
-- **Particle Size**
-- **Zeta Potential**
-- **Drug Loading Efficiency**
-- **Targeting Efficiency**
-- **Cytotoxicity**
-
-Our Trained models include:
-- **XGBoost**: A powerful tree-based model for regression tasks.
-- **Keras**: A deep learning model for complex pattern recognition.
-- **DCN**: Deep Cross Network for feature interaction learning.
-- **MLP**: Multi-Layer Perceptron for non-linear regression.
-
-Just enter your synthesis parameters, and our model will give optimized outcomes — no lab trials needed 
-""")
-
-# Call to Action
-st.markdown('<h3 style="text-align:center;">Ready to explore your reaction outcomes?</h3>', unsafe_allow_html=True)
-
-
-if st.button("Try the Model"):
+st.divider()
+if st.button("Open the predictor", type="primary"):
     st.switch_page("pages/Model.py")

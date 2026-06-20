@@ -24,6 +24,10 @@ import time # Ensure time is imported for sleep
 # For loading Keras model
 import tensorflow as tf # Import tensorflow
 
+# Deterministic, chemist-validated recommender. Replaces the Groq optimization call
+# (Algorithm 1's optimization step) with a (method, property, direction) lookup table.
+import recommender
+
 
 # --- Load environment variables from .env file ---
 # Assumes your .env file is named GROQ_API_KEY.env and is in the same directory
@@ -341,64 +345,6 @@ Conclude with a clear YES or NO classification."""
 
     return prompt
 
-# --- Function to create prompt for LLM optimization ---
-def generate_synthesis_optimization_prompt(sample, feature_explanation, criteria):
-    """
-    Generate a prompt for the LLM to suggest optimizations to the synthesis method
-    based on the current parameters and desired outputs
-    """
-    unmet_criteria = []
-    for col, spec in criteria.items():
-        if col in sample.index:
-            low, high = spec['ideal_range']
-            value = sample[col]
-            if value < low:
-                unmet_criteria.append(f"{col} is too low ({value:.2f} vs. ideal minimum {low})")
-            elif value > high:
-                unmet_criteria.append(f"{col} is too high ({value:.2f} vs. ideal maximum {high})")
-        else:
-             unmet_criteria.append(f"Property '{col}' is missing from the sample data.")
-
-
-    prompt = f"""Task: Suggest optimizations to the gold nanoparticle (AuNP) synthesis method to improve its suitability for cancer treatment.
-
-Background Knowledge on AuNP Synthesis for Cancer Treatment:
-{explanation_text} # Use the loaded explanation text
-
-Current Synthesis Parameters and Results:
-"""
-
-    prompt += "## Input Parameters:\n"
-    # Assuming sample contains all input features and target properties
-    input_cols_in_sample = [col for col in sample.index if col in input_features]
-    if input_cols_in_sample:
-         for col in input_cols_in_sample:
-            prompt += f"- {col}: {sample[col]:.4f}\\n"
-    else:
-         prompt += "No input parameters provided in sample.\\n"
-
-    prompt += "\\n## Resulting Properties:\\n"
-    output_cols_in_sample = [col for col in criteria.keys() if col in sample.index]
-    if output_cols_in_sample:
-         for col in output_cols_in_sample:
-            prompt += f"- {{col}}: {{sample[col]:.4f}}\\n"
-    else:
-         prompt += "No resulting properties provided in sample.\\n"
-
-
-    if unmet_criteria:
-        prompt += "\\n## Criteria Not Met:\\n"
-        for issue in unmet_criteria:
-            prompt += f"- {{issue}}\\n"
-    else:
-         prompt += "\\n## All Criteria Met:\\n\\nThe current synthesis parameters appear suitable.\\n"
-
-
-    prompt += "\\nBased on the feature relationships and current parameters, please suggest specific modifications to the synthesis method that would improve the properties to meet all criteria for cancer treatment.\\nProvide a step-by-step explanation of:\\n1. Which parameters should be adjusted and by how much\\n2. Expected impact on each target property\\n3. Scientific rationale for each suggested change\\n4. A revised synthesis protocol incorporating these changes"
-
-    return prompt
-
-
 # --- Function to call the Groq API directly ---
 def call_groq_api(prompt, model=GROQ_MODEL_NAME, max_tokens=500, temperature=0.7, max_retries=5, initial_delay=1.0):
     """
@@ -533,9 +479,9 @@ def call_groq_api(prompt, model=GROQ_MODEL_NAME, max_tokens=500, temperature=0.7
 if __name__ == '__main__':
     # Check if model and scalers are loaded and input features are identified
     if ml_model is None or scaler_X is None or scaler_y is None:
-        print("\nCannot proceed with prediction or LLM analysis without loaded ML model and scalers.")
+        print("\nCannot proceed with prediction or analysis without loaded ML model and scalers.")
     elif not input_features:
-         print("\nCannot proceed with prediction or LLM analysis without identified input features.")
+         print("\nCannot proceed with prediction or analysis without identified input features.")
     else:
         # Get user input for a single sample
         user_sample_input = get_user_input(input_features)
@@ -568,8 +514,8 @@ if __name__ == '__main__':
             # Ensure the order of columns matches what the LLM prompt functions expect
             combined_sample = pd.concat([user_sample_input, predicted_output_series])
 
-            # --- Call Groq API for Classification ---
-            print("\n--- Requesting Suitability Classification from Groq API ---")
+            # --- Suitability classification ---
+            print("\n--- Requesting Suitability Classification ---")
             classification_prompt = create_llm_classification_prompt(combined_sample, explanation_text, suitability_criteria)
             classification_response, predicted_suitability_label = call_groq_api(
                 classification_prompt, model=GROQ_MODEL_NAME, max_tokens=500
@@ -577,36 +523,40 @@ if __name__ == '__main__':
 
             print("\n--- Suitability Classification Result ---")
             print(f"Predicted Suitable: {'Yes' if predicted_suitability_label == 1 else ('No' if predicted_suitability_label == 0 else 'Could not determine')}")
-            print("\nGroq API Explanation:")
+            print("\nClassification rationale:")
             print(classification_response)
             print("-" * 30)
 
-            # Add a delay before the next API call
+            # Add a delay before the next step (classification uses a remote call)
             if API_CALL_DELAY > 0:
-                print(f"Waiting for {API_CALL_DELAY} seconds before requesting optimization...")
+                print(f"Waiting for {API_CALL_DELAY} seconds before generating recommendations...")
                 time.sleep(API_CALL_DELAY)
 
 
-            # --- Call Groq API for Optimization Suggestions ---
-            print("\n--- Requesting Optimization Suggestions from Groq API ---")
-            # Need feature_insights for generating the optimization prompt
-            if not feature_insights:
-                 print("Warning: Feature insights not loaded, optimization prompt may be less specific.")
-
-            optimization_prompt = generate_synthesis_optimization_prompt(
-                combined_sample, explanation_text, suitability_criteria
+            # --- Deterministic Optimization Recommendations ---
+            # Every recommendation is a pre-validated (synthesis method, property,
+            # direction-of-deviation) lookup with a one-line mechanistic justification.
+            # No external call, no latency, no hallucination risk.
+            print("\n--- Generating Optimization Recommendations (rule-based) ---")
+            sample_dict = combined_sample.to_dict()
+            success_pred = None if predicted_suitability_label is None else bool(predicted_suitability_label)
+            report = recommender.build_recommendation_report(
+                user_input=sample_dict,        # used to infer the synthesis method
+                predictions=sample_dict,        # property values (criteria keys are read from here)
+                criteria=suitability_criteria,
+                use_case="cancer treatment",
+                max_items=3,
+                success_prediction=success_pred,  # reconcile with the LLM suitability verdict
             )
-            optimization_suggestion, _ = call_groq_api(
-                optimization_prompt, model=GROQ_MODEL_NAME, max_tokens=1000 # More tokens for suggestions
-            )
+            optimization_suggestion = report["markdown"]
 
-            print("\n--- Optimization Suggestion from Groq API ---")
+            print("\n--- Optimization Recommendation (based on rule table) ---")
             print(optimization_suggestion)
             print("-" * 30)
 
 
         except Exception as e:
-            print(f"\nAn error occurred during prediction or LLM calls: {e}")
+            print(f"\nAn error occurred during prediction or analysis: {e}")
             # Provide more specific error messages if possible
             if "shape" in str(e) and ("scaler" in str(e) or "model" in str(e)):
                  print("Hint: Check if the input features provided match the number of features the scalers/model were fitted/trained on.")
@@ -616,4 +566,4 @@ if __name__ == '__main__':
 
 
 else:
-    print("Skipping prediction and LLM analysis because input features could not be identified or data loading failed.")
+    print("Skipping prediction and analysis because input features could not be identified or data loading failed.")
